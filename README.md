@@ -7,14 +7,15 @@ Details of the monitoring approach are described in: https://doi.org/10.1007/978
 Relies on the following packages: ltlf2dfa, scipy, declare4py
 
 The package ltlf2dfa requires installing MONA:
-* sudo apt install make
-* sudo apt install gcc
-* sudo apt-get install build-essential
-* sudo apt-get install flex
-* wget http://www.brics.dk/mona/download/mona-1.4-18.tar.gz
-* tar -xvzf mona-1.4-18.tar.gz
-* cd mona-1.4/
-* ./configure --enable-static --enable-shared=no
-* sudo make install-strip
-* mona
+
+    sudo apt install make
+    sudo apt install gcc
+    sudo apt-get install build-essential
+    sudo apt-get install flex
+    wget http://www.brics.dk/mona/download/mona-1.4-18.tar.gz
+    tar -xvzf mona-1.4-18.tar.gz
+    cd mona-1.4/
+    ./configure --enable-static --enable-shared=no
+    sudo make install-strip
+    mona
 
