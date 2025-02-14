@@ -1,0 +1,3 @@
+Responded Existence[b, a] | | |;1.0
+Responded Existence[a, b] | | |;0.75
+Exactly2[a] | |;0.5
