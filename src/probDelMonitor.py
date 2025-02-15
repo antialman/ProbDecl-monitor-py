@@ -3,14 +3,19 @@ import re
 
 from Declare4Py.ProcessModels.DeclareModel import DeclareModel
 from Declare4Py.ProcessModels.DeclareModel import DeclareModelTemplate
+from Declare4Py.ProcessModels.LTLModel import LTLTemplate
+
+import ltlUtils
+
 
 
 #Input model path
 modelPath = os.path.join("input", "model_01_probDecl.txt")
 
-
-formulaToProbability = {} #For looking up probabilities based on constraint formula
 activityToEncoding = {} #Activity encodings, used internally to avoid issues with special characters in activity names
+ltlFormulas = []
+formulaToProbability = {} #For looking up probabilities based on constraint formula
+
 
 
 #Reading the decl model
@@ -43,14 +48,13 @@ with open(modelPath, "r+") as file:
                             activityToEncoding[activity] = "ac" + str(len(activityToEncoding))
                     
                     #Create LTL formula for the constraint
+                    formula = ltlUtils.get_constraint_formula(template,
+                                                              activityToEncoding[activities[0]],
+                                                              activityToEncoding[activities[1]] if template.is_binary else None,
+                                                              cardinality)
+                    formulaToProbability[formula] = probability
+                    ltlFormulas.append(formula)
                     
-                    
-                    
-                    print()
-                    print(activities)
-                    print(tmp)
-                    print(constraintStr, template, str(cardinality))
-                    
-                    #self.constraints.append(tmp)
-                    #declare_parsed_model.add_template(constraintStr, template, str(cardinality))
-print(activityToEncoding)
+                    print(formula)
+
+
