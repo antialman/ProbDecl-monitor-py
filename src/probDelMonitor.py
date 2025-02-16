@@ -1,9 +1,15 @@
 import os
 import re
+import itertools
+
+import numpy as np
 
 from Declare4Py.ProcessModels.DeclareModel import DeclareModel
 from Declare4Py.ProcessModels.DeclareModel import DeclareModelTemplate
 from Declare4Py.ProcessModels.LTLModel import LTLTemplate
+from Declare4Py.ProcessModels.LTLModel import LTLModel
+
+from logaut import ltl2dfa
 
 import ltlUtils
 
@@ -13,7 +19,7 @@ import ltlUtils
 modelPath = os.path.join("input", "model_01_probDecl.txt")
 
 activityToEncoding = {} #Activity encodings, used internally to avoid issues with special characters in activity names
-ltlFormulas = []
+ltlFormulas = [] #List of ltl formulas (with encoded activities)
 formulaToProbability = {} #For looking up probabilities based on constraint formula
 
 
@@ -56,5 +62,49 @@ with open(modelPath, "r+") as file:
                     ltlFormulas.append(formula)
                     
                     print(formula)
+    
+    print("======")
+    print("Reading decl file done")
+    print("======")
+
+    #Creating formula for enforcing simple trace semantics
+    activityToEncoding[""] = "acx" #Used for activities that are not in the decl model (needed for chain constraints)
+    simpleTraceFormula = "(G(" + " || ".join(activityToEncoding.values()) + ") && " #At least one proposition must always be true
+    acPairs = list(itertools.combinations(activityToEncoding.values(),2)) #Creates all possible activity pairs
+    simpleTraceFormula = simpleTraceFormula + "(!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition must always be true
+    print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
+
+
+    #Used for creating the constraint scenarios, false means the corresponding constraint will be negated in the specific scenario 
+    formulaCombinations = list(itertools.product([True, False], repeat=len(ltlFormulas)))
+    
+    #Creating automata for (and checking logical consistency of) each scenario
+    for  formulaCombination in formulaCombinations:
+        nameComponents = ["x"]
+        formulaComponents = []
+        for index, formulaBoolean in enumerate(formulaCombination):
+            if formulaBoolean:
+                nameComponents.append("1")
+                formulaComponents.append(ltlFormulas[index])
+            else:
+                nameComponents.append("0")
+                formulaComponents.append("(!" + ltlFormulas[index] + ")")
+        
+        scenarioName = "".join(nameComponents)
+        scenarioFormula = " && ".join(formulaComponents) + " && " + simpleTraceFormula
+        
+        print("===")
+        print("Scenario: " + scenarioName)
+        print("Formula: " + scenarioFormula)
+
+        scenarioModel = LTLModel()
+        scenarioModel.to_ltlf2dfa_backend()
+        scenarioModel.parse_from_string(scenarioFormula)
+
+        print("Satisfiability: " + str(scenarioModel.check_satisfiability()))
+
+
+
+
 
 
