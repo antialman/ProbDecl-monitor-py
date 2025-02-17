@@ -1,5 +1,5 @@
 activity a
 activity b
-Responded Existence[b, a] | | |
 Responded Existence[a, b] | | |
+Responded Existence[b, a] | | |
 Exactly2[a] | |
