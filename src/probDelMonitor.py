@@ -82,7 +82,7 @@ print("======")
 #simpleTraceFormula = simpleTraceFormula + "(!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + "))))" #At most one proposition must always be true
 #print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
 
-#Formula for enforcing simple trace semantics (allowing all propositions to be false)
+#Formula for enforcing simple trace semantics (allowing all propositions to be false, should simplify processing activities that are not present in the decl model)
 acPairs = list(itertools.combinations(activityToEncoding.values(),2))
 simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition must always be true
 print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
@@ -134,23 +134,18 @@ for  formulaCombination in formulaCombinations:
 
 
 
+
+#Example of replaying a prefix 
 print()
 for scenarioName, scenarioDfa in scenarioToDfa.items():
     accepts = scenarioDfa.accepts([
-        {activityToEncoding["a"]:True},
-        {activityToEncoding["a"]:True}, 
+        {},
+        {activityToEncoding["b"]:True}, 
+        {activityToEncoding["b"]:True}, 
         {activityToEncoding["b"]:True}, 
         {activityToEncoding["a"]:True}, 
-        {activityToEncoding["b"]:True}])
+        {activityToEncoding["a"]:True}])
 
-
-    print(scenarioName + " accepts: " + str(accepts))
-
-    
-        
-
-
-
-
-
-
+    if accepts:
+        print(scenarioName + " accepts: " + str(accepts))
+        print(str(scenarioDfa.to_graphviz()))
