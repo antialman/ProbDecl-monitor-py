@@ -75,16 +75,16 @@ print("Reading decl file done")
 print("======")
 
 
-#Formula for enforcing simple trace semantics (requiring one proposition to hold at every time point and proposition z used for activities that are not present in the decl model)
+#Formula for enforcing simple trace semantics (requiring one proposition to hold at every time point, proposition z is intended for activities that are not present in the decl model)
 #activityToEncoding[""] = "z" #Used for activities that are not in the decl model
 #simpleTraceFormula = "(G((" + " || ".join(activityToEncoding.values()) + ") && " #At least one proposition must always be true
 #acPairs = list(itertools.combinations(activityToEncoding.values(),2)) #Creates all possible activity pairs
 #simpleTraceFormula = simpleTraceFormula + "(!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + "))))" #At most one proposition must always be true
 #print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
 
-#Formula for enforcing simple trace semantics (allowing all propositions to be false, should simplify processing activities that are not present in the decl model)
+#Formula for enforcing simple trace semantics (allowing all propositions to be false, should allow processing activities that are not present in the decl model by simply setting all propositions to false)
 acPairs = list(itertools.combinations(activityToEncoding.values(),2))
-simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition must always be true
+simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition can be true at any point in time
 print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
 
 
@@ -128,9 +128,11 @@ for  formulaCombination in formulaCombinations:
         consistentScenarios.append(scenarioName) #Name is used in the system of inequalities
         scenarioDfa = scenarioDfa.minimize() #Calling minimize seems to be redundant with the ltlf2dfa backend, but keeping the call just in case
         scenarioToDfa[scenarioName] = scenarioDfa #Used for processing the prefix and predicted events
-        print(str(scenarioDfa.to_graphviz()))
+        #print(str(scenarioDfa.to_graphviz()))
 
-
+print("======")
+print("Logical satisfiability checking done")
+print("======")
 
 
 
@@ -138,14 +140,14 @@ for  formulaCombination in formulaCombinations:
 #Example of replaying a prefix 
 print()
 for scenarioName, scenarioDfa in scenarioToDfa.items():
-    accepts = scenarioDfa.accepts([
-        {},
-        {activityToEncoding["b"]:True}, 
-        {activityToEncoding["b"]:True}, 
+    accepts = scenarioDfa.accepts([ 
+        {}, #The automaton from ltl2dfa seems to always have an initial state with a single outgoing arc labeled true
+        {activityToEncoding["b"]:True}, #Ocurrence of an event is represented by setting the corresponding proposition to true, other propositions remain false by default
+        {}, #Activities that are not present in the decl model are represented as an empty dictionary (removing the empty dictionary would affect the processing of chain type constraints)
         {activityToEncoding["b"]:True}, 
         {activityToEncoding["a"]:True}, 
         {activityToEncoding["a"]:True}])
 
     if accepts:
         print(scenarioName + " accepts: " + str(accepts))
-        print(str(scenarioDfa.to_graphviz()))
+        #print(str(scenarioDfa.to_graphviz()))
