@@ -21,8 +21,8 @@ int_char_map = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 
 activityToEncoding = {} #Activity encodings, used internally to avoid issues with special characters in activity names
 constraintFormulas = [] #Ltl formula of each constraint in the same order as they appear in the input model (with encoded activities)
 formulaToProbability = {} #For looking up probabilities based on constraint formula
-inconsistentScenarios = []
-consistentScenarios = []
+inconsistentScenarios = [] #Logically inconsistent scenarios
+consistentScenarios = [] #Logically consistent scenarios
 scenarioToDfa = {} #For looking up DFA based on scenario name, contains only consistent scenarios
 
 
@@ -88,24 +88,21 @@ simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPa
 print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
 
 
-#Used for creating the constraint scenarios, false means the corresponding constraint will be negated in the specific scenario 
-formulaCombinations = list(itertools.product([True, False], repeat=len(constraintFormulas)))
+#Used for creating the constraint scenarios, 1 - positive constraint, 0 - negated constraint
+scenarios = list(itertools.product([1, 0], repeat=len(constraintFormulas)))
 
 #Creating automata for (and checking logical consistency of) each scenario
-for  formulaCombination in formulaCombinations:
-    nameComponents = ["x"]
+for  scenario in scenarios:
     formulaComponents = []
-    for index, formulaBoolean in enumerate(formulaCombination):
-        if formulaBoolean:
+    for index, posneg in enumerate(scenario):
+        if posneg == 1:
             #Add 1 to the scenario name and use the constraint formula as-is
-            nameComponents.append("1")
             formulaComponents.append(constraintFormulas[index])
         else:
             #Add 0 to the scenario name and negate the constraint formula
-            nameComponents.append("0")
             formulaComponents.append("(!" + constraintFormulas[index] + ")")
     
-    scenarioName = "".join(nameComponents) #Joins the scenario name into a single string, e.g., x001, which would mean negation of the first and second constraint
+    scenarioName = "".join(map(str, scenario)) #Joins the scenario name into a single string, e.g., x001, which would mean negation of the first and second constraint
     scenarioFormula = " && ".join(formulaComponents) + " && " + simpleTraceFormula #Scenario formula is a conjunction of negated and non-negated constraint formulas + the formula to enforce simple trace semantics
     
     print("===")
@@ -122,12 +119,12 @@ for  formulaCombination in formulaCombinations:
     scenarioDfa = ltl2dfa(scenarioModel.parsed_formula, backend="ltlf2dfa")
     if len(scenarioDfa.accepting_states) == 0:
         print("Satisfiable: False")
-        inconsistentScenarios.append(scenarioName) #Name is used in the system of inequalities
+        inconsistentScenarios.append(scenario) #Name is used in the system of inequalities
     else:
         print("Satisfiable: True")
-        consistentScenarios.append(scenarioName) #Name is used in the system of inequalities
+        consistentScenarios.append(scenario) #Name is used in the system of inequalities
         scenarioDfa = scenarioDfa.minimize() #Calling minimize seems to be redundant with the ltlf2dfa backend, but keeping the call just in case
-        scenarioToDfa[scenarioName] = scenarioDfa #Used for processing the prefix and predicted events
+        scenarioToDfa[scenario] = scenarioDfa #Used for processing the prefix and predicted events
         #print(str(scenarioDfa.to_graphviz()))
 
 print("======")
@@ -136,10 +133,16 @@ print("======")
 
 
 
+#Creating the system of (in)equalities to calculate scenario probability ranges
+
+
+
+
+
 
 #Example of replaying a prefix 
 print()
-for scenarioName, scenarioDfa in scenarioToDfa.items():
+for formulaCombination, scenarioDfa in scenarioToDfa.items():
     accepts = scenarioDfa.accepts([ 
         {}, #The automaton from ltl2dfa seems to always have an initial state with a single outgoing arc labeled true
         {activityToEncoding["b"]:True}, #Ocurrence of an event is represented by setting the corresponding proposition to true, other propositions remain false by default
@@ -149,5 +152,5 @@ for scenarioName, scenarioDfa in scenarioToDfa.items():
         {activityToEncoding["a"]:True}])
 
     if accepts:
-        print(scenarioName + " accepts: " + str(accepts))
+        print("".join(map(str, formulaCombination)) + " accepts: " + str(accepts))
         #print(str(scenarioDfa.to_graphviz()))

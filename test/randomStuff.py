@@ -5,6 +5,10 @@ from Declare4Py.ProcessModels.LTLModel import LTLModel
 
 from logaut import ltl2dfa
 
+
+from scipy.optimize import linprog
+import numpy as np
+
 parser = LTLfParser()
 
 
@@ -103,3 +107,50 @@ for template in DeclareModelTemplate:
     
 
     
+#System of inequalities
+
+# Setting the inequality constraints matrix
+A = np.array([[-1, -1, -1], 
+              [-1, 2, 0], 
+              [0, 0, -1], 
+              [-1, 0, 0], 
+              [0, -1, 0], 
+              [0, 0, -1]])
+
+# Setting the inequality constraints vector
+b = np.array([-1000, 0, -340, 0, 0, 0])
+
+# Setting the coefficients of the linear objective function vector
+c = np.array([10, 15, 25])
+
+# Solving linear programming problem
+res = linprog(c, A_ub=A, b_ub=b)
+
+print('Optimal value:', round(res.fun, ndigits=2),
+      '\nx values:', res.x,
+      '\nNumber of iterations performed:', res.nit,
+      '\nStatus:', res.message)
+
+
+############
+
+# Setting the equality constraints matrix
+Aeq = np.array([[  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1  ], 
+              [  0 ,  1 ,  0 ,  1 ,  0 ,  1 ,  0 ,  1  ], 
+              [  0 ,  0 ,  1 ,  1 ,  0 ,  0 ,  1 ,  1  ], 
+              [  0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ,  1  ]])
+
+
+beq = np.array([1.0, 1.0, 0.75, 0.5])
+
+boundz = np.array([(0,0),(0,1),(0,1),(0,1),(0,0),(0,1),(0,0),(0,1)])
+
+
+c = np.array([1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1])
+
+res = linprog(c, A_eq=Aeq, b_eq=beq, bounds=boundz)
+
+print('Optimal value:', round(res.fun, ndigits=2),
+      '\nx values:', res.x,
+      '\nNumber of iterations performed:', res.nit,
+      '\nStatus:', res.message)
