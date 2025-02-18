@@ -11,6 +11,8 @@ from Declare4Py.ProcessModels.LTLModel import LTLModel
 
 from logaut import ltl2dfa
 
+from scipy.optimize import linprog
+
 import ltlUtils
 
 
@@ -21,6 +23,7 @@ int_char_map = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 
 activityToEncoding = {} #Activity encodings, used internally to avoid issues with special characters in activity names
 constraintFormulas = [] #Ltl formula of each constraint in the same order as they appear in the input model (with encoded activities)
 formulaToProbability = {} #For looking up probabilities based on constraint formula
+scenarios = [] #One tuple per each constraint scenario, tuples consist of 1,0 values where 1 means positive constraint and 0 means negated constraint
 inconsistentScenarios = [] #Logically inconsistent scenarios
 consistentScenarios = [] #Logically consistent scenarios
 scenarioToDfa = {} #For looking up DFA based on scenario name, contains only consistent scenarios
@@ -89,7 +92,7 @@ print("Simple trace semantics formula (silently added to all scenarios): " + sim
 
 
 #Used for creating the constraint scenarios, 1 - positive constraint, 0 - negated constraint
-scenarios = list(itertools.product([1, 0], repeat=len(constraintFormulas)))
+scenarios = list(itertools.product([1, 0], repeat=len(constraintFormulas))) #Scenario with all positive constraints is first, and scenario with all negated constraints is last
 
 #Creating automata for (and checking logical consistency of) each scenario
 for  scenario in scenarios:
@@ -102,11 +105,10 @@ for  scenario in scenarios:
             #Add 0 to the scenario name and negate the constraint formula
             formulaComponents.append("(!" + constraintFormulas[index] + ")")
     
-    scenarioName = "".join(map(str, scenario)) #Joins the scenario name into a single string, e.g., x001, which would mean negation of the first and second constraint
     scenarioFormula = " && ".join(formulaComponents) + " && " + simpleTraceFormula #Scenario formula is a conjunction of negated and non-negated constraint formulas + the formula to enforce simple trace semantics
     
     print("===")
-    print("Scenario: " + scenarioName)
+    print("Scenario: " + "".join(map(str, scenario)))
     print("Formula: " + scenarioFormula)
 
     #Parsing the scenario formula
@@ -133,10 +135,33 @@ print("======")
 
 
 
-#Creating the system of (in)equalities to calculate scenario probability ranges
+#Creating the system of (in)equalities to calculate scenario probabilities
+lhs_eq_coeficents = [[1] * len(scenarios)] #Sum of all scenarios...
+rhs_eq_values = [1.0] #...equals 1
+
+for formulaIndex, formula in enumerate(constraintFormulas):
+    lhs_eq_coeficents.append([scenario[formulaIndex] for scenario in scenarios]) #Sum of scenarios where a constraint is not negated...
+    rhs_eq_values.append(formulaToProbability[formula]) #...equals the probability of that constraint
+#for i in range(len(rhs_eq_values)):
+#    print(str(lhs_eq_coeficents[i]) + " = " + str(rhs_eq_values[i]))
+
+bounds = []
+for scenario in scenarios:
+    if scenario in inconsistentScenarios:
+        bounds.append((0,0)) #Probability of an inconsistent scenario must be 0
+    else:
+        bounds.append((0,1)) #Probability of a consistent scenario must be between 0 and 1
+
+c = [[1] * len(scenarios)] #This leads to consistent probability values for all scenarios, without any optimization
 
 
-
+res = linprog(c, A_eq=lhs_eq_coeficents, b_eq=rhs_eq_values, bounds=bounds)
+print(res.message)
+if res.success:
+    for scenarioIndex, scenarioProbability in enumerate(res.x):
+        print("Scenario " + "".join(map(str, scenarios[scenarioIndex])) + " probability: " + str(scenarioProbability))
+else:
+    print("No event log can match input constraint probabilities")
 
 
 

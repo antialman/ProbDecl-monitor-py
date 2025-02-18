@@ -135,22 +135,28 @@ print('Optimal value:', round(res.fun, ndigits=2),
 ############
 
 # Setting the equality constraints matrix
-Aeq = np.array([[  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1  ], 
+A_eq = np.array([[  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1  ], 
               [  0 ,  1 ,  0 ,  1 ,  0 ,  1 ,  0 ,  1  ], 
               [  0 ,  0 ,  1 ,  1 ,  0 ,  0 ,  1 ,  1  ], 
               [  0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ,  1  ]])
 
 
-beq = np.array([1.0, 1.0, 0.75, 0.5])
+b_eq = np.array([1.0, 1.0, 0.75, 0.5])
 
-boundz = np.array([(0,0),(0,1),(0,1),(0,1),(0,0),(0,1),(0,0),(0,1)])
+bounds = np.array([(0,0),(0,1),(0,1),(0,1),(0,0),(0,1),(0,0),(0,1)])
 
 
 c = np.array([1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1])
 
-res = linprog(c, A_eq=Aeq, b_eq=beq, bounds=boundz)
+res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds)
 
 print('Optimal value:', round(res.fun, ndigits=2),
       '\nx values:', res.x,
       '\nNumber of iterations performed:', res.nit,
       '\nStatus:', res.message)
+
+
+lst = [1] * 5
+print(lst)
+lst[0]=0
+print(lst)
