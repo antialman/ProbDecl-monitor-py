@@ -153,6 +153,8 @@ for scenario in scenarios:
         bounds.append((0,1)) #Probability of a consistent scenario must be between 0 and 1
 
 c = [[1] * len(scenarios)] #Leads to consistent probability values for all scenarios without optimizing for any scenario
+#c[0][2]=2 #This would instead bias the solution towards assigning a higher probability to the third scenario (while adjusting the probabilities of other scenarios accordingly)
+#print(c)
 
 #Solving the system of (in)equalities
 res = linprog(c, A_eq=lhs_eq_coeficents, b_eq=rhs_eq_values, bounds=bounds)
@@ -165,7 +167,8 @@ else:
 
 
 
-
+#Finding next possible events (and their probabilities) for a given trace prefix
+prefix = [""]
 
 
 
