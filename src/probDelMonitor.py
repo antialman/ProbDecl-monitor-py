@@ -19,215 +19,222 @@ import autUtils
 from autUtils import TruthValue
 
 
-#Input model path
-modelPath = os.path.join("input", "model_01_probDecl.txt")
+class ProbDeclarePredictor:
+    def __init__(self):
+        super().__init__()
+        self.int_char_map = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'l'} #Taken from Declare4Py.Utils.utils.parse_activity(act: str)
+        self.activityToEncoding = {} #Activity encodings, used internally to avoid issues with special characters in activity names
+        self.constraintFormulas = [] #Ltl formula of each constraint in the same order as they appear in the input model (with encoded activities)
+        self.formulaToProbability = {} #For looking up probabilities based on constraint formula
+        self.scenarios = [] #One tuple per each constraint scenario, tuples consist of 1,0 values where 1 means positive constraint and 0 means negated constraint
+        self.inconsistentScenarios = [] #Logically inconsistent scenarios, could probably remove this list and use scenarioToDfa.keys() instead
+        self.consistentScenarios = [] #Logically consistent scenarios, could probably remove this list and use scenarioToDfa.keys() instead
+        self.scenarioToDfa = {} #For looking up DFA based on the scenario, contains only consistent scenarios
+        self.scenarioToProbability = {} #For looking up the probability of a secanrio
+    
+    def loadProbDeclModel(self, modelPath: str) -> None:
+        #Reading the decl model
+        with open(modelPath, "r+") as file:
+            for line in file:
+                #Assuming <constraint>;<probability>
+                splitLine = line.split(";")
+                probability = float(splitLine[1].strip())
+                constraintStr = splitLine[0].strip()
+                
+                if DeclareModel.is_constraint_template_definition(constraintStr):
+                    #Based on the method Declare4Py.ProcessModels.DeclareModel.parse(self, lines: [str])
+                    split = constraintStr.split("[", 1)
+                    template_search = re.search(r'(^.+?)(\d*$)', split[0])
+                    if template_search is not None:
+                        template_str, cardinality = template_search.groups()
+                        template = DeclareModelTemplate.get_template_from_string(template_str)
+                        if template is not None:
+                            activities = split[1].split("]")[0]
+                            activities = activities.split(", ")
+                            tmp = {"template": template, "activities": activities,
+                                    "condition": re.split(r'\s+\|', constraintStr)[1:]}
+                            if template.supports_cardinality:
+                                tmp['n'] = 1 if not cardinality else int(cardinality)
+                                cardinality = tmp['n']
+                            
+                            #Create activity encoding, if not already created
+                            for activity in activities:
+                                if activity not in self.activityToEncoding:
+                                    activityEncoding = str(len(self.activityToEncoding))
+                                    for int_key in self.int_char_map.keys():
+                                        activityEncoding = activityEncoding.replace(str(int_key), self.int_char_map[int_key])
+                                    self.activityToEncoding[activity] = activityEncoding
+                            
+                            #Create LTL formula for the constraint
+                            formula = ltlUtils.get_constraint_formula(template,
+                                                                    self.activityToEncoding[activities[0]],
+                                                                    self.activityToEncoding[activities[1]] if template.is_binary else None,
+                                                                    cardinality)
+                            self.formulaToProbability[formula] = probability
+                            self.constraintFormulas.append(formula)
+                            
+                            print(formula)
 
-int_char_map = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'l'} #Taken from Declare4Py.Utils.utils.parse_activity(act: str)
-activityToEncoding = {} #Activity encodings, used internally to avoid issues with special characters in activity names
-constraintFormulas = [] #Ltl formula of each constraint in the same order as they appear in the input model (with encoded activities)
-formulaToProbability = {} #For looking up probabilities based on constraint formula
-scenarios = [] #One tuple per each constraint scenario, tuples consist of 1,0 values where 1 means positive constraint and 0 means negated constraint
-inconsistentScenarios = [] #Logically inconsistent scenarios
-consistentScenarios = [] #Logically consistent scenarios
-scenarioToDfa = {} #For looking up DFA based on the scenario, contains only consistent scenarios
-scenarioToProbability = {} #For looking up the probability of a secanrio
+        print("Activity encodings: " + str(self.activityToEncoding))
 
-
-
-#Reading the decl model
-with open(modelPath, "r+") as file:
-    for line in file:
-        #Assuming <constraint>;<probability>
-        splitLine = line.split(";")
-        probability = float(splitLine[1].strip())
-        constraintStr = splitLine[0].strip()
-        
-        if DeclareModel.is_constraint_template_definition(constraintStr):
-            #Based on the method Declare4Py.ProcessModels.DeclareModel.parse(self, lines: [str])
-            split = constraintStr.split("[", 1)
-            template_search = re.search(r'(^.+?)(\d*$)', split[0])
-            if template_search is not None:
-                template_str, cardinality = template_search.groups()
-                template = DeclareModelTemplate.get_template_from_string(template_str)
-                if template is not None:
-                    activities = split[1].split("]")[0]
-                    activities = activities.split(", ")
-                    tmp = {"template": template, "activities": activities,
-                            "condition": re.split(r'\s+\|', constraintStr)[1:]}
-                    if template.supports_cardinality:
-                        tmp['n'] = 1 if not cardinality else int(cardinality)
-                        cardinality = tmp['n']
-                    
-                    #Create activity encoding, if not already created
-                    for activity in activities:
-                        if activity not in activityToEncoding:
-                            activityEncoding = str(len(activityToEncoding))
-                            for int_key in int_char_map.keys():
-                                activityEncoding = activityEncoding.replace(str(int_key), int_char_map[int_key])
-                            activityToEncoding[activity] = activityEncoding
-                    
-                    #Create LTL formula for the constraint
-                    formula = ltlUtils.get_constraint_formula(template,
-                                                              activityToEncoding[activities[0]],
-                                                              activityToEncoding[activities[1]] if template.is_binary else None,
-                                                              cardinality)
-                    formulaToProbability[formula] = probability
-                    constraintFormulas.append(formula)
-                    
-                    print(formula)
-
-print("Activity encodings: " + str(activityToEncoding))
-
-print()
-print("======")
-print("Reading decl file done")
-print("======")
-print()
-
-
-#Formula for enforcing simple trace semantics (requiring one proposition to hold at every time point, proposition z is intended for activities that are not present in the decl model)
-#activityToEncoding[""] = "z" #Used for activities that are not in the decl model
-#simpleTraceFormula = "(G((" + " || ".join(activityToEncoding.values()) + ") && " #At least one proposition must always be true
-#acPairs = list(itertools.combinations(activityToEncoding.values(),2)) #Creates all possible activity pairs
-#simpleTraceFormula = simpleTraceFormula + "(!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + "))))" #At most one proposition must always be true
-#print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
-
-#Formula for enforcing simple trace semantics (allowing all propositions to be false, should allow processing activities that are not present in the decl model by simply setting all propositions to false)
-acPairs = list(itertools.combinations(activityToEncoding.values(),2))
-simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition can be true at any point in time
-print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
+        print()
+        print("======")
+        print("Reading decl file done")
+        print("======")
+        print()
 
 
-#Used for creating the constraint scenarios, 1 - positive constraint, 0 - negated constraint
-scenarios = list(itertools.product([1, 0], repeat=len(constraintFormulas))) #Scenario with all positive constraints is first, and scenario with all negated constraints is last
+        #Formula for enforcing simple trace semantics (requiring one proposition to hold at every time point, proposition z is intended for activities that are not present in the decl model)
+        #self.activityToEncoding[""] = "z" #Used for activities that are not in the decl model
+        #simpleTraceFormula = "(G((" + " || ".join(self.activityToEncoding.values()) + ") && " #At least one proposition must always be true
+        #acPairs = list(itertools.combinations(self.activityToEncoding.values(),2)) #Creates all possible activity pairs
+        #simpleTraceFormula = simpleTraceFormula + "(!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + "))))" #At most one proposition must always be true
+        #print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
 
-#Creating automata for (and checking logical consistency of) each scenario
-for  scenario in scenarios:
-    formulaComponents = []
-    for index, posneg in enumerate(scenario):
-        if posneg == 1:
-            #Add 1 to the scenario name and use the constraint formula as-is
-            formulaComponents.append(constraintFormulas[index])
+        #Formula for enforcing simple trace semantics (allowing all propositions to be false, should allow processing activities that are not present in the decl model by simply setting all propositions to false)
+        acPairs = list(itertools.combinations(self.activityToEncoding.values(),2))
+        simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition can be true at any point in time
+        print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
+
+
+        #Used for creating the constraint scenarios, 1 - positive constraint, 0 - negated constraint
+        self.scenarios = list(itertools.product([1, 0], repeat=len(self.constraintFormulas))) #Scenario with all positive constraints is first, and scenario with all negated constraints is last
+
+        #Creating automata for (and checking logical consistency of) each scenario
+        for  scenario in self.scenarios:
+            formulaComponents = []
+            for index, posneg in enumerate(scenario):
+                if posneg == 1:
+                    #Add 1 to the scenario name and use the constraint formula as-is
+                    formulaComponents.append(self.constraintFormulas[index])
+                else:
+                    #Add 0 to the scenario name and negate the constraint formula
+                    formulaComponents.append("(!" + self.constraintFormulas[index] + ")")
+            
+            scenarioFormula = " && ".join(formulaComponents) + " && " + simpleTraceFormula #Scenario formula is a conjunction of negated and non-negated constraint formulas + the formula to enforce simple trace semantics
+            
+            print("===")
+            print("Scenario: " + "".join(map(str, scenario)))
+            print("Formula: " + scenarioFormula)
+
+            #Parsing the scenario formula
+            scenarioModel = LTLModel()
+            scenarioModel.to_ltlf2dfa_backend()
+            scenarioModel.parse_from_string(scenarioFormula)
+            print("Parsed formula: " + str(scenarioModel.parsed_formula))
+
+            #Creating an automaton for the scenario and checking satisfiability
+            scenarioDfa = ltl2dfa(scenarioModel.parsed_formula, backend="ltlf2dfa")
+            if len(scenarioDfa.accepting_states) == 0:
+                print("Satisfiable: False")
+                self.inconsistentScenarios.append(scenario) #Name is used in the system of inequalities
+            else:
+                print("Satisfiable: True")
+                self.consistentScenarios.append(scenario) #Name is used in the system of inequalities
+                scenarioDfa = scenarioDfa.minimize() #Calling minimize seems to be redundant with the ltlf2dfa backend, but keeping the call just in case
+                self.scenarioToDfa[scenario] = scenarioDfa #Used for processing the prefix and predicted events
+                #print(str(scenarioDfa.to_graphviz()))
+
+        print()
+        print("======")
+        print("Logical satisfiability checking done")
+        print("======")
+        print()
+
+
+        #Creating the system of (in)equalities to calculate scenario probabilities
+        lhs_eq_coeficents = [[1] * len(self.scenarios)] #Sum of all scenarios...
+        rhs_eq_values = [1.0] #...equals 1
+
+        for formulaIndex, formula in enumerate(self.constraintFormulas):
+            lhs_eq_coeficents.append([scenario[formulaIndex] for scenario in self.scenarios]) #Sum of scenarios where a constraint is not negated...
+            rhs_eq_values.append(self.formulaToProbability[formula]) #...equals the probability of that constraint
+        #for i in range(len(rhs_eq_values)):
+        #    print(str(lhs_eq_coeficents[i]) + " = " + str(rhs_eq_values[i]))
+
+        bounds = [] #Tuples of upper and lower bounds for the value of each variable in the system of (in)equalities, where variables represent the probabilities of scenarios
+        for scenario in self.scenarios:
+            if scenario in self.inconsistentScenarios:
+                bounds.append((0,0)) #Probability of an inconsistent scenario must be 0
+            else:
+                bounds.append((0,1)) #Probability of a consistent scenario must be between 0 and 1
+
+        c = [[1] * len(self.scenarios)] #Leads to consistent probability values for all scenarios without optimizing for any scenario
+        #c[0][2]=2 #This would instead bias the solution towards assigning a higher probability to the third scenario (while adjusting the probabilities of other scenarios accordingly)
+        #print(c)
+
+        #Solving the system of (in)equalities
+        res = linprog(c, A_eq=lhs_eq_coeficents, b_eq=rhs_eq_values, bounds=bounds)
+        print(res.message)
+        if res.success:
+            for scenarioIndex, scenarioProbability in enumerate(res.x):
+                print("Scenario " + "".join(map(str, self.scenarios[scenarioIndex])) + " probability: " + str(scenarioProbability))
+                self.scenarioToProbability[self.scenarios[scenarioIndex]] = scenarioProbability
         else:
-            #Add 0 to the scenario name and negate the constraint formula
-            formulaComponents.append("(!" + constraintFormulas[index] + ")")
+            print("No event log can match input constraint probabilities") #For example, the probabilities of Existence[a] and Absence[a] must add up to 1 in every conceivable event log 
+
+
+        print()
+        print("======")
+        print("Calculation of scenario probabilities done")
+        print("======")
+        print()
     
-    scenarioFormula = " && ".join(formulaComponents) + " && " + simpleTraceFormula #Scenario formula is a conjunction of negated and non-negated constraint formulas + the formula to enforce simple trace semantics
-    
-    print("===")
-    print("Scenario: " + "".join(map(str, scenario)))
-    print("Formula: " + scenarioFormula)
+    def processPrefix(self, prefix: list[str]) -> dict[str, np.float64]:
+        nextEventScores = {} #Dictionary of next events and their probabilities based on the given prefix and the probDeclare model
+        scenarioToPrefixEndState = {} #Dictionary containing the end state of each scenario for the given prefix
 
-    #Parsing the scenario formula
-    scenarioModel = LTLModel()
-    scenarioModel.to_ltlf2dfa_backend()
-    scenarioModel.parse_from_string(scenarioFormula)
-    print("Parsed formula: " + str(scenarioModel.parsed_formula))
+        #Finding next possible events (and their probabilities) for a given trace prefix
+        word = autUtils.prefix_to_word(prefix, self.activityToEncoding) #Creating the input for DFA based on the given prefix
 
-    #Creating an automaton for the scenario and checking satisfiability
-    scenarioDfa = ltl2dfa(scenarioModel.parsed_formula, backend="ltlf2dfa")
-    if len(scenarioDfa.accepting_states) == 0:
-        print("Satisfiable: False")
-        inconsistentScenarios.append(scenario) #Name is used in the system of inequalities
-    else:
-        print("Satisfiable: True")
-        consistentScenarios.append(scenario) #Name is used in the system of inequalities
-        scenarioDfa = scenarioDfa.minimize() #Calling minimize seems to be redundant with the ltlf2dfa backend, but keeping the call just in case
-        scenarioToDfa[scenario] = scenarioDfa #Used for processing the prefix and predicted events
-        #print(str(scenarioDfa.to_graphviz()))
+        #Replay the given prefix and store the resulting state for each scenario automata 
+        for scenario, scenarioDfa in self.scenarioToDfa.items():
+            prefixEndState = autUtils.get_state_for_prefix(scenarioDfa, word)
+            scenarioToPrefixEndState[scenario] = prefixEndState
 
-print()
-print("======")
-print("Logical satisfiability checking done")
-print("======")
-print()
+        #Handling the recommendation for stopping the process execution
+        for scenario, prefixEndState in scenarioToPrefixEndState.items():
+            #Note that there should always be one scenario that is in either PERM_SAT or POSS_SAT state
+            if autUtils.get_state_truth_value(self.scenarioToDfa[scenario], prefixEndState, self.activityToEncoding.values()) is TruthValue.PERM_SAT:
+                print("Scenario" + str(scenario) + " is permanently satisfied. Recommending to stop process execution")
+                nextEventScores[None] = 1.0 #Using None for recommending to stop the execution
+                for activity in self.activityToEncoding.keys(): #Setting the score of all other activities to 0.0, the resulting dictionary is the final output
+                    nextEventScores[activity] = 0.0
+                break
+            if autUtils.get_state_truth_value(self.scenarioToDfa[scenario], prefixEndState, self.activityToEncoding.values()) is TruthValue.POSS_SAT:
+                print("Stopping the execution means staying in scenario:")
+                print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
+                nextEventScores[None] = self.scenarioToProbability[scenario] #Scores for other potential activities will be added to this dictionary instance
+                
+                #Handling recommendations for continuing trace execution
+                for activity, activityEncoding in self.activityToEncoding.items():
+                    nextEventScores[activity] = 0.0
+                    print("The following scenarios would still be possible after executing " + activity + ":")
+                    for scenario, scenarioDfa in self.scenarioToDfa.items():
+                        successor = list(scenarioDfa.get_successors(scenarioToPrefixEndState[scenario], {activityEncoding: True}))[0] #This is a DFA so there is only one successor
+                        if not(autUtils.get_state_truth_value(self.scenarioToDfa[scenario], successor, self.activityToEncoding.values()) is TruthValue.PERM_VIOL):
+                            nextEventScores[activity] = nextEventScores[activity] + self.scenarioToProbability[scenario] #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
+                            print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
+                break
+        print()
+        print("======")
+        print("Ranking of next activities done for prefix " + str(prefix))
+        print("======")
+        print()
 
-
-#Creating the system of (in)equalities to calculate scenario probabilities
-lhs_eq_coeficents = [[1] * len(scenarios)] #Sum of all scenarios...
-rhs_eq_values = [1.0] #...equals 1
-
-for formulaIndex, formula in enumerate(constraintFormulas):
-    lhs_eq_coeficents.append([scenario[formulaIndex] for scenario in scenarios]) #Sum of scenarios where a constraint is not negated...
-    rhs_eq_values.append(formulaToProbability[formula]) #...equals the probability of that constraint
-#for i in range(len(rhs_eq_values)):
-#    print(str(lhs_eq_coeficents[i]) + " = " + str(rhs_eq_values[i]))
-
-bounds = [] #Tuples of upper and lower bounds for the value of each variable in the system of (in)equalities, where variables represent the probabilities of scenarios
-for scenario in scenarios:
-    if scenario in inconsistentScenarios:
-        bounds.append((0,0)) #Probability of an inconsistent scenario must be 0
-    else:
-        bounds.append((0,1)) #Probability of a consistent scenario must be between 0 and 1
-
-c = [[1] * len(scenarios)] #Leads to consistent probability values for all scenarios without optimizing for any scenario
-#c[0][2]=2 #This would instead bias the solution towards assigning a higher probability to the third scenario (while adjusting the probabilities of other scenarios accordingly)
-#print(c)
-
-#Solving the system of (in)equalities
-res = linprog(c, A_eq=lhs_eq_coeficents, b_eq=rhs_eq_values, bounds=bounds)
-print(res.message)
-if res.success:
-    for scenarioIndex, scenarioProbability in enumerate(res.x):
-        print("Scenario " + "".join(map(str, scenarios[scenarioIndex])) + " probability: " + str(scenarioProbability))
-        scenarioToProbability[scenarios[scenarioIndex]] = scenarioProbability
-else:
-    print("No event log can match input constraint probabilities") #For example, the probabilities of Existence[a] and Absence[a] must add up to 1 in every conceivable event log 
+        return nextEventScores
 
 
-print()
-print("======")
-print("Calculation of scenario probabilities done")
-print("======")
-print()
 
 
-nextEvents = {} #Dictionary of next events and their probabilities based on the given prefix and the probDeclare model
-scenarioToPrefixEndState = {} #Dictionary containing the end state of each scenario for the given prefix
 
-#Finding next possible events (and their probabilities) for a given trace prefix
-prefix = ["b", "x", "b", "a", "a"] #Example prefix
-word = autUtils.prefix_to_word(prefix, activityToEncoding) #Creating the input for DFA based on the given prefix
+modelPath = os.path.join("input", "model_01_probDecl.txt")
+prefix = ["b", "x", "b", "a", "a"]
 
-#Replay the given prefix and store the resulting state for each scenario automata 
-for scenario, scenarioDfa in scenarioToDfa.items():
-    prefixEndState = autUtils.get_state_for_prefix(scenarioDfa, word)
-    scenarioToPrefixEndState[scenario] = prefixEndState
-
-#Handling the recommendation for stopping the process execution
-for scenario, prefixEndState in scenarioToPrefixEndState.items():
-    #Note that there should always be one scenario that is in either PERM_SAT or POSS_SAT state
-    if autUtils.get_state_truth_value(scenarioToDfa[scenario], prefixEndState, activityToEncoding.values()) is TruthValue.PERM_SAT:
-        print("Scenario" + str(scenario) + " is permanently satisfied. Recommending to stop process execution")
-        nextEvents[None] = 1.0 #Using None for recommending to stop the execution
-        for activity in activityToEncoding.keys(): #Setting the score of all other activities to 0.0, the resulting dictionary is the final output
-            nextEvents[activity] = 0.0
-        break
-    if autUtils.get_state_truth_value(scenarioToDfa[scenario], prefixEndState, activityToEncoding.values()) is TruthValue.POSS_SAT:
-        print("Stopping the execution means staying in scenario:")
-        print("    " + "".join(map(str, scenario)) + " (probability: " + str(scenarioToProbability[scenario]) + ")")
-        nextEvents[None] = scenarioToProbability[scenario] #Scores for other potential activities will be added to this dictionary instance
-        
-        #Handling recommendations for continuing trace execution
-        for activity, activityEncoding in activityToEncoding.items():
-            nextEvents[activity] = 0.0
-            print("The following scenarios would still be possible after executing " + activity + ":")
-            for scenario, scenarioDfa in scenarioToDfa.items():
-                successor = list(scenarioDfa.get_successors(scenarioToPrefixEndState[scenario], {activityEncoding: True}))[0] #This is a DFA so there is only one successor
-                if not(autUtils.get_state_truth_value(scenarioToDfa[scenario], successor, activityToEncoding.values()) is TruthValue.PERM_VIOL):
-                    nextEvents[activity] = nextEvents[activity] + scenarioToProbability[scenario] #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
-                    print("    " + "".join(map(str, scenario)) + " (probability: " + str(scenarioToProbability[scenario]) + ")")
-        break
-
-
-print()
-print("======")
-print("Ranking of next activities for the given prefix done")
-print("======")
-print()
+probDeclarePredictor = ProbDeclarePredictor()
+probDeclarePredictor.loadProbDeclModel(modelPath)
+result = probDeclarePredictor.processPrefix(prefix)
 
 print("Final ranking:")
-for event, score in sorted(nextEvents.items(), key=operator.itemgetter(1), reverse=True):
+for event, score in sorted(result.items(), key=operator.itemgetter(1), reverse=True):
     print("    " + str(event) + ": " + str(score)) #str(event) because one of the keys is None
-
-
