@@ -42,18 +42,17 @@ def get_state_for_prefix(aut: DFA, word: Sequence[SymbolType]) -> StateType:
 
     return list(current_states)[0] #The input is a DFA, so there must always be exactly one current state
 
-
+#Finds the truth value of a given state in the given automaton
+#Assumes that the given automaton is minimized
 @staticmethod
 def get_state_truth_value(aut: DFA, state: StateType, activityEncodings: list[str]) -> TruthValue:
-    if aut.is_accepting(state):
-        for activityEncoding in activityEncodings:
-            for successor in aut.get_successors(state, {activityEncoding: True}):
-                if not(aut.is_accepting(successor)):
-                    return TruthValue.POSS_SAT
-        return TruthValue.PERM_SAT
-    else:
-        for activityEncoding in activityEncodings:
-            for successor in aut.get_successors(state, {activityEncoding: True}):
-                if not(state == successor):
-                    return TruthValue.POSS_VIOL
-        return TruthValue.PERM_VIOL
+    accepting = aut.is_accepting(state)
+    for activityEncoding in activityEncodings:
+        #If it is possible to exit the given state with at least one possible activity then it is not a trap-state and therefore the truth value is temporary
+        for successor in aut.get_successors(state, {activityEncoding: True}):
+            if not(state == successor):
+                return TruthValue.POSS_SAT if accepting else TruthValue.POSS_VIOL
+        for successor in aut.get_successors(state, {}): #Checking the successor for activities not present in the Declare model (needed for chain type constraints)
+            if not(state == successor):
+                return TruthValue.POSS_SAT if accepting else TruthValue.POSS_VIOL
+    return TruthValue.PERM_SAT if accepting else TruthValue.PERM_VIOL #Reaching here means that the given state is a trap-state and therefore the truth value is permanent
