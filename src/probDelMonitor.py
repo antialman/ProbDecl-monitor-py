@@ -28,7 +28,6 @@ class ProbDeclarePredictor:
         self.formulaToProbability = {} #For looking up probabilities based on constraint formula
         self.scenarios = [] #One tuple per each constraint scenario, tuples consist of 1,0 values where 1 means positive constraint and 0 means negated constraint
         self.inconsistentScenarios = [] #Logically inconsistent scenarios, could probably remove this list and use scenarioToDfa.keys() instead
-        self.consistentScenarios = [] #Logically consistent scenarios, could probably remove this list and use scenarioToDfa.keys() instead
         self.scenarioToDfa = {} #For looking up DFA based on the scenario, contains only consistent scenarios
         self.scenarioToProbability = {} #For looking up the probability of a secanrio
     
@@ -130,7 +129,6 @@ class ProbDeclarePredictor:
                 self.inconsistentScenarios.append(scenario) #Name is used in the system of inequalities
             else:
                 print("Satisfiable: True")
-                self.consistentScenarios.append(scenario) #Name is used in the system of inequalities
                 scenarioDfa = scenarioDfa.minimize() #Calling minimize seems to be redundant with the ltlf2dfa backend, but keeping the call just in case
                 self.scenarioToDfa[scenario] = scenarioDfa #Used for processing the prefix and predicted events
                 #print(str(scenarioDfa.to_graphviz()))
