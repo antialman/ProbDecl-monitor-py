@@ -1,3 +1,4 @@
+from enum import Enum
 from functools import reduce
 
 from pythomata.core import DFA
@@ -7,6 +8,14 @@ StateType = TypeVar("StateType")
 SymbolType = TypeVar("SymbolType")
 
 
+class TruthValue(Enum):
+    PERM_SAT = 1
+    POSS_SAT = 2
+    POSS_VIOL = 3
+    PERM_VIOL = 4
+
+
+#Translates a prefix from a list of strings to a dictionary that can be used with the FiniteAutomaton class from pythomata/core.py
 @staticmethod
 def prefix_to_word(prefix: list[str], activityToEncoding: dict[str,str]) -> Sequence[SymbolType]:
     word = [{}]  #The automaton from ltl2dfa seems to always have an initial state with a single outgoing arc labeled true
@@ -32,3 +41,19 @@ def get_state_for_prefix(aut: DFA, word: Sequence[SymbolType]) -> StateType:
             )
 
     return list(current_states)[0] #The input is a DFA, so there must always be exactly one current state
+
+
+@staticmethod
+def get_state_truth_value(aut: DFA, state: StateType, activityEncodings: list[str]) -> TruthValue:
+    if aut.is_accepting(state):
+        for activityEncoding in activityEncodings:
+            for successor in aut.get_successors(state, {activityEncoding: True}):
+                if not(aut.is_accepting(successor)):
+                    return TruthValue.POSS_SAT
+        return TruthValue.PERM_SAT
+    else:
+        for activityEncoding in activityEncodings:
+            for successor in aut.get_successors(state, {activityEncoding: True}):
+                if not(state == successor):
+                    return TruthValue.POSS_VIOL
+        return TruthValue.PERM_VIOL

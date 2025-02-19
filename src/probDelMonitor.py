@@ -15,6 +15,7 @@ from scipy.optimize import linprog
 
 import ltlUtils
 import autUtils
+from autUtils import TruthValue
 
 
 #Input model path
@@ -179,31 +180,26 @@ print()
 
 
 nextEvents = {} #Dictionary of next events and their probabilities based on the given prefix and the probDeclare model
-prefixEndStates = {} #Dictionary containing the end state of each scenario for the given prefix
-permSat = False #For tracking if some scenario is permanently satisfied
+scenarioToPrefixEndState = {} #Dictionary containing the end state of each scenario for the given prefix
 
 #Finding next possible events (and their probabilities) for a given trace prefix
 prefix = ["b", "x", "b", "a", "a"] #Example prefix
 word = autUtils.prefix_to_word(prefix, activityToEncoding) #Creating the input for DFA based on the given prefix
 
-#Finding the state of each scenario automaton at the end of the given prefix
+#Replay the given prefix and store the resulting state for each scenario automata 
 for scenario, scenarioDfa in scenarioToDfa.items():
     prefixEndState = autUtils.get_state_for_prefix(scenarioDfa, word)
-    prefixEndStates[scenario] = prefixEndState
+    scenarioToPrefixEndState[scenario] = prefixEndState
 
-    permSat = scenarioDfa.is_accepting(prefixEndState)
-    if permSat:
-        print("Scenario " + "".join(map(str, scenario)) + " is permanently satisfied")
-        break #If a scenario is permanently satisfied, then no future activity can satisfy any other secanrio
-
-#Determining next activity rankings
-if permSat: #Recommending to stop process execution when some scenario is permanently satisfied
-    nextEvents[None] = 1.0 #Using None for recommending to stop the execution
-    for activity in activityToEncoding.keys(): #Setting the score of all other activities to 0.0
-        nextEvents[activity] = 0.0
-else:
-    for activity, encoding in activityToEncoding.values():
-        print("TODO")
+#Handling the recommendation for stopping the process execution
+for scenario, prefixEndState in scenarioToPrefixEndState.items():
+    #Note that there should always be one scenario that is in either PERM_SAT or POSS_SAT state
+    if autUtils.get_state_truth_value(scenarioToDfa[scenario], prefixEndState, activityToEncoding.values()) is TruthValue.PERM_SAT:
+        nextEvents[None] = 1.0 #Using None for recommending to stop the execution
+        for activity in activityToEncoding.keys(): #Setting the score of all other activities to 0.0
+            nextEvents[activity] = 0.0
+        break
 
 
 print(nextEvents)
+
