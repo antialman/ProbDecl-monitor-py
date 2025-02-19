@@ -176,6 +176,13 @@ class ProbDeclarePredictor:
         print()
     
     def processPrefix(self, prefix: list[str]) -> dict[str|bool, np.float64]:
+
+        print()
+        print("======")
+        print("Ranking next activities for prefix " + str(prefix))
+        print("======")
+        print()
+
         nextEventScores = {} #Dictionary of next events and their probabilities based on the given prefix and the probDeclare model
         scenarioToPrefixEndState = {} #Dictionary containing the end state of each scenario for the given prefix
 
