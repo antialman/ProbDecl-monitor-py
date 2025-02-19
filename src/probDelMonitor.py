@@ -14,6 +14,7 @@ from logaut import ltl2dfa
 from scipy.optimize import linprog
 
 import ltlUtils
+import autUtils
 
 
 #Input model path
@@ -73,9 +74,12 @@ with open(modelPath, "r+") as file:
                     print(formula)
 
 print("Activity encodings: " + str(activityToEncoding))
+
+print()
 print("======")
 print("Reading decl file done")
 print("======")
+print()
 
 
 #Formula for enforcing simple trace semantics (requiring one proposition to hold at every time point, proposition z is intended for activities that are not present in the decl model)
@@ -129,10 +133,11 @@ for  scenario in scenarios:
         scenarioToDfa[scenario] = scenarioDfa #Used for processing the prefix and predicted events
         #print(str(scenarioDfa.to_graphviz()))
 
+print()
 print("======")
 print("Logical satisfiability checking done")
 print("======")
-
+print()
 
 
 #Creating the system of (in)equalities to calculate scenario probabilities
@@ -166,22 +171,22 @@ else:
     print("No event log can match input constraint probabilities") #For example, the probabilities of Existence[a] and Absence[a] must add up to 1 in every conceivable event log 
 
 
+print()
+print("======")
+print("Calculation of scenario probabilities done")
+print("======")
+print()
+
+
 
 #Finding next possible events (and their probabilities) for a given trace prefix
-prefix = [""]
+prefix = ["b", "x", "b", "a", "a"] #Example prefix
+word = autUtils.prefix_to_word(prefix, activityToEncoding) #Creating the input for DFA based on the given prefix
 
-
-
-#Example of replaying a prefix 
-print()
+#Finding the state of each scenario automaton at the end of the given prefix
 for formulaCombination, scenarioDfa in scenarioToDfa.items():
-    accepts = scenarioDfa.accepts([ 
-        {}, #The automaton from ltl2dfa seems to always have an initial state with a single outgoing arc labeled true
-        {activityToEncoding["b"]:True}, #Ocurrence of an event is represented by setting the corresponding proposition to true, other propositions remain false by default
-        {}, #Activities that are not present in the decl model are represented as an empty dictionary (removing the empty dictionary would affect the processing of chain type constraints)
-        {activityToEncoding["b"]:True}, 
-        {activityToEncoding["a"]:True}, 
-        {activityToEncoding["a"]:True}])
+    prefixEndState = autUtils.get_state_for_prefix(scenarioDfa, word)
+    accepts = scenarioDfa.is_accepting(prefixEndState)
 
     if accepts:
         print("".join(map(str, formulaCombination)) + " accepts: " + str(accepts))
