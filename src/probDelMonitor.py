@@ -178,16 +178,32 @@ print("======")
 print()
 
 
+nextEvents = {} #Dictionary of next events and their probabilities based on the given prefix and the probDeclare model
+prefixEndStates = {} #Dictionary containing the end state of each scenario for the given prefix
+permSat = False #For tracking if some scenario is permanently satisfied
 
 #Finding next possible events (and their probabilities) for a given trace prefix
 prefix = ["b", "x", "b", "a", "a"] #Example prefix
 word = autUtils.prefix_to_word(prefix, activityToEncoding) #Creating the input for DFA based on the given prefix
 
 #Finding the state of each scenario automaton at the end of the given prefix
-for formulaCombination, scenarioDfa in scenarioToDfa.items():
+for scenario, scenarioDfa in scenarioToDfa.items():
     prefixEndState = autUtils.get_state_for_prefix(scenarioDfa, word)
-    accepts = scenarioDfa.is_accepting(prefixEndState)
+    prefixEndStates[scenario] = prefixEndState
 
-    if accepts:
-        print("".join(map(str, formulaCombination)) + " accepts: " + str(accepts))
-        #print(str(scenarioDfa.to_graphviz()))
+    permSat = scenarioDfa.is_accepting(prefixEndState)
+    if permSat:
+        print("Scenario " + "".join(map(str, scenario)) + " is permanently satisfied")
+        break #If a scenario is permanently satisfied, then no future activity can satisfy any other secanrio
+
+#Determining next activity rankings
+if permSat: #Recommending to stop process execution when some scenario is permanently satisfied
+    nextEvents[None] = 1.0 #Using None for recommending to stop the execution
+    for activity in activityToEncoding.keys(): #Setting the score of all other activities to 0.0
+        nextEvents[activity] = 0.0
+else:
+    for activity, encoding in activityToEncoding.values():
+        print("TODO")
+
+
+print(nextEvents)
