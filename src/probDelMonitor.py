@@ -28,7 +28,8 @@ formulaToProbability = {} #For looking up probabilities based on constraint form
 scenarios = [] #One tuple per each constraint scenario, tuples consist of 1,0 values where 1 means positive constraint and 0 means negated constraint
 inconsistentScenarios = [] #Logically inconsistent scenarios
 consistentScenarios = [] #Logically consistent scenarios
-scenarioToDfa = {} #For looking up DFA based on scenario name, contains only consistent scenarios
+scenarioToDfa = {} #For looking up DFA based on the scenario, contains only consistent scenarios
+scenarioToProbability = {} #For looking up the probability of a secanrio
 
 
 
@@ -168,6 +169,7 @@ print(res.message)
 if res.success:
     for scenarioIndex, scenarioProbability in enumerate(res.x):
         print("Scenario " + "".join(map(str, scenarios[scenarioIndex])) + " probability: " + str(scenarioProbability))
+        scenarioToProbability[scenarios[scenarioIndex]] = scenarioProbability
 else:
     print("No event log can match input constraint probabilities") #For example, the probabilities of Existence[a] and Absence[a] must add up to 1 in every conceivable event log 
 
@@ -199,7 +201,9 @@ for scenario, prefixEndState in scenarioToPrefixEndState.items():
         for activity in activityToEncoding.keys(): #Setting the score of all other activities to 0.0
             nextEvents[activity] = 0.0
         break
-
+    if autUtils.get_state_truth_value(scenarioToDfa[scenario], prefixEndState, activityToEncoding.values()) is TruthValue.POSS_SAT:
+        nextEvents[None] = scenarioToProbability[scenario] #Scores for other potential activities will be added to this dictionary instance
+        break
 
 print(nextEvents)
 
