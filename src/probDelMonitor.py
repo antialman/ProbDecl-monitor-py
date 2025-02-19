@@ -178,7 +178,7 @@ class ProbDeclarePredictor:
         print("======")
         print()
     
-    def processPrefix(self, prefix: list[str]) -> dict[str, np.float64]:
+    def processPrefix(self, prefix: list[str]) -> dict[str|bool, np.float64]:
         nextEventScores = {} #Dictionary of next events and their probabilities based on the given prefix and the probDeclare model
         scenarioToPrefixEndState = {} #Dictionary containing the end state of each scenario for the given prefix
 
@@ -195,16 +195,17 @@ class ProbDeclarePredictor:
             #Note that there should always be one scenario that is in either PERM_SAT or POSS_SAT state
             if autUtils.get_state_truth_value(self.scenarioToDfa[scenario], prefixEndState, self.activityToEncoding.values()) is TruthValue.PERM_SAT:
                 print("Scenario" + str(scenario) + " is permanently satisfied. Recommending to stop process execution")
-                nextEventScores[None] = 1.0 #Using None for recommending to stop the execution
+                nextEventScores[False] = 1.0 #Using False for recommending to stop the execution
+                nextEventScores[True] = 0.0 #Using True for recommending any activity not present in the declare model (needed for chain type constraints)
                 for activity in self.activityToEncoding.keys(): #Setting the score of all other activities to 0.0, the resulting dictionary is the final output
                     nextEventScores[activity] = 0.0
                 break
             if autUtils.get_state_truth_value(self.scenarioToDfa[scenario], prefixEndState, self.activityToEncoding.values()) is TruthValue.POSS_SAT:
                 print("Stopping the execution means staying in scenario:")
                 print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
-                nextEventScores[None] = self.scenarioToProbability[scenario] #Scores for other potential activities will be added to this dictionary instance
+                nextEventScores[False] = self.scenarioToProbability[scenario] #Scores for other potential activities will be added to this dictionary instance
                 
-                #Handling recommendations for continuing trace execution
+                #Handling recommendations for continuing trace execution with activities present in the declare model
                 for activity, activityEncoding in self.activityToEncoding.items():
                     nextEventScores[activity] = 0.0
                     print("The following scenarios would still be possible after executing " + activity + ":")
@@ -213,6 +214,17 @@ class ProbDeclarePredictor:
                         if not(autUtils.get_state_truth_value(self.scenarioToDfa[scenario], successor, self.activityToEncoding.values()) is TruthValue.PERM_VIOL):
                             nextEventScores[activity] = nextEventScores[activity] + self.scenarioToProbability[scenario] #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
                             print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
+                
+                #Recommendation for any activities not present in the declare model
+                nextEventScores[True] = 0.0
+                print("The following scenarios would still be possible after executing an activity not present in the declare model:")
+                for scenario, scenarioDfa in self.scenarioToDfa.items():
+                    successor = list(scenarioDfa.get_successors(scenarioToPrefixEndState[scenario], {}))[0] #This is a DFA so there is only one successor
+                    if not(autUtils.get_state_truth_value(self.scenarioToDfa[scenario], successor, self.activityToEncoding.values()) is TruthValue.PERM_VIOL):
+                        nextEventScores[True] = nextEventScores[True] + self.scenarioToProbability[scenario] #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
+                        print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
+
+
                 break
         print()
         print("======")
@@ -227,7 +239,7 @@ class ProbDeclarePredictor:
 
 
 modelPath = os.path.join("input", "model_01_probDecl.txt")
-prefix = ["b", "x", "b", "a", "a"]
+prefix = ["b", "x", "b", "a", "a", "b"]
 
 probDeclarePredictor = ProbDeclarePredictor()
 probDeclarePredictor.loadProbDeclModel(modelPath)
@@ -235,4 +247,4 @@ result = probDeclarePredictor.processPrefix(prefix)
 
 print("Final ranking:")
 for event, score in sorted(result.items(), key=operator.itemgetter(1), reverse=True):
-    print("    " + str(event) + ": " + str(score)) #str(event) because one of the keys is None
+    print("    " + str(event) + ": " + str(score)) #Using str(event) because result contains the keyword False for stopping the execution and the keyword True for any unknown activity
