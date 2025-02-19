@@ -1,6 +1,7 @@
 import os
 import re
 import itertools
+import operator
 
 import numpy as np
 
@@ -197,13 +198,36 @@ for scenario, scenarioDfa in scenarioToDfa.items():
 for scenario, prefixEndState in scenarioToPrefixEndState.items():
     #Note that there should always be one scenario that is in either PERM_SAT or POSS_SAT state
     if autUtils.get_state_truth_value(scenarioToDfa[scenario], prefixEndState, activityToEncoding.values()) is TruthValue.PERM_SAT:
+        print("Scenario" + str(scenario) + " is permanently satisfied. Recommending to stop process execution")
         nextEvents[None] = 1.0 #Using None for recommending to stop the execution
-        for activity in activityToEncoding.keys(): #Setting the score of all other activities to 0.0
+        for activity in activityToEncoding.keys(): #Setting the score of all other activities to 0.0, the resulting dictionary is the final output
             nextEvents[activity] = 0.0
         break
     if autUtils.get_state_truth_value(scenarioToDfa[scenario], prefixEndState, activityToEncoding.values()) is TruthValue.POSS_SAT:
+        print("Stopping the execution means staying in scenario:")
+        print("    " + "".join(map(str, scenario)) + " (probability: " + str(scenarioToProbability[scenario]) + ")")
         nextEvents[None] = scenarioToProbability[scenario] #Scores for other potential activities will be added to this dictionary instance
+        
+        #Handling recommendations for continuing trace execution
+        for activity, activityEncoding in activityToEncoding.items():
+            nextEvents[activity] = 0.0
+            print("The following scenarios would still be possible after executing " + activity + ":")
+            for scenario, scenarioDfa in scenarioToDfa.items():
+                successor = list(scenarioDfa.get_successors(scenarioToPrefixEndState[scenario], {activityEncoding: True}))[0] #This is a DFA so there is only one successor
+                if not(autUtils.get_state_truth_value(scenarioToDfa[scenario], successor, activityToEncoding.values()) is TruthValue.PERM_VIOL):
+                    nextEvents[activity] = nextEvents[activity] + scenarioToProbability[scenario] #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
+                    print("    " + "".join(map(str, scenario)) + " (probability: " + str(scenarioToProbability[scenario]) + ")")
         break
 
-print(nextEvents)
+
+print()
+print("======")
+print("Ranking of next activities for the given prefix done")
+print("======")
+print()
+
+print("Final ranking:")
+for event, score in sorted(nextEvents.items(), key=operator.itemgetter(1), reverse=True):
+    print("    " + str(event) + ": " + str(score)) #str(event) because one of the keys is None
+
 
