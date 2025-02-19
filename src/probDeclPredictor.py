@@ -1,13 +1,10 @@
-import os
 import re
 import itertools
-import operator
 
 import numpy as np
 
 from Declare4Py.ProcessModels.DeclareModel import DeclareModel
 from Declare4Py.ProcessModels.DeclareModel import DeclareModelTemplate
-from Declare4Py.ProcessModels.LTLModel import LTLTemplate
 from Declare4Py.ProcessModels.LTLModel import LTLModel
 
 from logaut import ltl2dfa
