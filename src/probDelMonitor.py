@@ -145,23 +145,27 @@ for formulaIndex, formula in enumerate(constraintFormulas):
 #for i in range(len(rhs_eq_values)):
 #    print(str(lhs_eq_coeficents[i]) + " = " + str(rhs_eq_values[i]))
 
-bounds = []
+bounds = [] #Tuples of upper and lower bounds for the value of each variable in the system of (in)equalities, where variables represent the probabilities of scenarios
 for scenario in scenarios:
     if scenario in inconsistentScenarios:
         bounds.append((0,0)) #Probability of an inconsistent scenario must be 0
     else:
         bounds.append((0,1)) #Probability of a consistent scenario must be between 0 and 1
 
-c = [[1] * len(scenarios)] #This leads to consistent probability values for all scenarios, without any optimization
+c = [[1] * len(scenarios)] #Leads to consistent probability values for all scenarios without optimizing for any scenario
 
-
+#Solving the system of (in)equalities
 res = linprog(c, A_eq=lhs_eq_coeficents, b_eq=rhs_eq_values, bounds=bounds)
 print(res.message)
 if res.success:
     for scenarioIndex, scenarioProbability in enumerate(res.x):
         print("Scenario " + "".join(map(str, scenarios[scenarioIndex])) + " probability: " + str(scenarioProbability))
 else:
-    print("No event log can match input constraint probabilities")
+    print("No event log can match input constraint probabilities") #For example, the probabilities of Existence[a] and Absence[a] must add up to 1 in every conceivable event log 
+
+
+
+
 
 
 

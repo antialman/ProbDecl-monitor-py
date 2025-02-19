@@ -1,4 +1,4 @@
 Responded Existence[a, b] | | |;0.75
 Responded Existence[b, a] | | |;1.0
 Exactly2[a] | |;0.5
-Exactly1[a] | |;1
+Exactly1[a] | |;0.2
