@@ -1,5 +1,6 @@
 import re
 import itertools
+from enum import Enum
 
 import numpy as np
 
@@ -14,6 +15,14 @@ from scipy.optimize import linprog
 import ltlUtils
 import autUtils
 from autUtils import TruthValue
+
+
+class AggregationMethod(Enum):
+    SUM = 1
+    MAX = 2
+    AVG = 3
+    MIN = 4
+
 
 
 #Class for the probDeclare predictor
@@ -180,12 +189,13 @@ class ProbDeclarePredictor:
         print("Calculation of scenario probabilities done")
         print("======")
         print()
+
     
-    def processPrefix(self, prefix: list[str]) -> dict[str|bool, np.float64]: #Processes a given prefix based on the currently loaded model
+    def processPrefix(self, prefix: list[str], aggregationMethod: AggregationMethod) -> dict[str|bool, np.float64]: #Processes a given prefix based on the currently loaded model
 
         print()
         print("======")
-        print("Ranking next activities for prefix " + str(prefix))
+        print(str(aggregationMethod) + " ranking next activities for prefix " + str(prefix))
         print("======")
         print()
 
@@ -215,32 +225,47 @@ class ProbDeclarePredictor:
                 print("Stopping the execution means staying in scenario:")
                 print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
                 nextEventScores[False] = self.scenarioToProbability[scenario] #Scores for other potential activities will be added to this dictionary instance
-                
-                #Handling recommendations for continuing trace execution with activities present in the declare model
+
+                #Recommendations for the activities that are present in the declare model
                 for activity, activityEncoding in self.activityToEncoding.items():
-                    nextEventScores[activity] = 0.0
+                    tmpProbabilities = []
                     print("The following scenarios would still be possible after executing " + activity + ":")
                     for scenario, scenarioDfa in self.scenarioToDfa.items():
                         successor = list(scenarioDfa.get_successors(scenarioToPrefixEndState[scenario], {activityEncoding: True}))[0] #This is a DFA so there is only one successor
                         if not(autUtils.get_state_truth_value(self.scenarioToDfa[scenario], successor, self.activityToEncoding.values()) is TruthValue.PERM_VIOL):
-                            nextEventScores[activity] = nextEventScores[activity] + self.scenarioToProbability[scenario] #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
+                            tmpProbabilities.append(self.scenarioToProbability[scenario])
                             print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
+                    nextEventScores[activity] = get_aggregate_score(tmpProbabilities, aggregationMethod)#Aggregate score for the activity according to the selected aggregationMethod
                 
                 #Recommendation for any activities not present in the declare model
-                nextEventScores[True] = 0.0
+                tmpProbabilities = []
                 print("The following scenarios would still be possible after executing an activity not present in the declare model:")
                 for scenario, scenarioDfa in self.scenarioToDfa.items():
                     successor = list(scenarioDfa.get_successors(scenarioToPrefixEndState[scenario], {}))[0] #This is a DFA so there is only one successor
                     if not(autUtils.get_state_truth_value(self.scenarioToDfa[scenario], successor, self.activityToEncoding.values()) is TruthValue.PERM_VIOL):
-                        nextEventScores[True] = nextEventScores[True] + self.scenarioToProbability[scenario] #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
+                        tmpProbabilities.append(self.scenarioToProbability[scenario])
                         print("    " + "".join(map(str, scenario)) + " (probability: " + str(self.scenarioToProbability[scenario]) + ")")
+                nextEventScores[activity] = get_aggregate_score(tmpProbabilities, aggregationMethod)#Aggregate score for the activity according to the selected aggregationMethod
 
 
                 break
         print()
         print("======")
-        print("Ranking of next activities done for prefix " + str(prefix))
+        print(str(aggregationMethod) + " ranking of next activities done for prefix " + str(prefix))
         print("======")
         print()
 
         return nextEventScores
+    
+@staticmethod
+def get_aggregate_score(tmpProbabilities: list[np.float64], aggregationMethod: AggregationMethod) -> np.float64:
+    if aggregationMethod is AggregationMethod.SUM: #The score of an event is the sum of the probabilities of scenbarios which are still possible after executing that event
+        return np.sum(tmpProbabilities)
+    elif aggregationMethod is AggregationMethod.MAX: #The score of an event is the probability of the most likely scenbario which is still possible after executing that event
+        return np.max(tmpProbabilities)
+    elif aggregationMethod is AggregationMethod.AVG: #The score of an event is the average of the probabilities of scenbarios which are still possible after executing that event
+        return np.average(tmpProbabilities)
+    elif aggregationMethod is AggregationMethod.MIN: #The score of an event is the probability of the least likely scenbario which is still possible after executing that event
+        return np.min(tmpProbabilities)
+    else:
+        print("Unsupported score aggregation method " + str(aggregationMethod))

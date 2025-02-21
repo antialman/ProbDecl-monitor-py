@@ -4,6 +4,7 @@ import os
 import operator
 
 from probDeclPredictor import ProbDeclarePredictor
+from probDeclPredictor import AggregationMethod
 
 
 if __name__ == "__main__":
@@ -15,10 +16,9 @@ if __name__ == "__main__":
     #Processing trace prefix (no need to reload the model after each prefix)
     prefixes = [["b", "x", "b", "a", "a"],["b", "x", "b", "a", "a", "a"]]
     for prefix in prefixes:
-        result = probDeclarePredictor.processPrefix(prefix)
-
         #Example of processing the output ranking
-        print("Ranking for prefix " + str(prefix) + ":")
+        result = probDeclarePredictor.processPrefix(prefix, AggregationMethod.AVG)
+        print(str(AggregationMethod.AVG) + " for prefix " + str(prefix) + ":")
         for event, score in sorted(result.items(), key=operator.itemgetter(1), reverse=True):
             if event is True:
                 #Excecution of any event that is not present in the declare model
@@ -29,3 +29,19 @@ if __name__ == "__main__":
             else:
                 #Execution of an activity that present in the declare model
                 print("    " + event + ": " + str(score))
+        
+
+        result = probDeclarePredictor.processPrefix(prefix, AggregationMethod.MAX)
+        print(str(AggregationMethod.MAX) + " for prefix " + str(prefix) + ":")
+        for event, score in sorted(result.items(), key=operator.itemgetter(1), reverse=True):
+            if event is True:
+                #Excecution of any event that is not present in the declare model
+                print("    Unknown: " + str(score))
+            elif event is False:
+                #Stopping the execution at the end of the given prefix
+                print("    Stop: " + str(score))
+            else:
+                #Execution of an activity that present in the declare model
+                print("    " + event + ": " + str(score))
+        
+        
