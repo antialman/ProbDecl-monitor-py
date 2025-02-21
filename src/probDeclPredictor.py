@@ -16,6 +16,7 @@ import autUtils
 from autUtils import TruthValue
 
 
+#Class for the probDeclare predictor
 class ProbDeclarePredictor:
     def __init__(self):
         super().__init__()
@@ -28,7 +29,8 @@ class ProbDeclarePredictor:
         self.scenarioToDfa = {} #For looking up DFA based on the scenario, contains only consistent scenarios
         self.scenarioToProbability = {} #For looking up the probability of a secanrio
     
-    def loadProbDeclModel(self, modelPath: str) -> None:
+
+    def loadProbDeclModel(self, modelPath: str) -> None: #Reads and processes the input declare model
         #Reading the decl model
         with open(modelPath, "r+") as file:
             for line in file:
@@ -179,7 +181,7 @@ class ProbDeclarePredictor:
         print("======")
         print()
     
-    def processPrefix(self, prefix: list[str]) -> dict[str|bool, np.float64]:
+    def processPrefix(self, prefix: list[str]) -> dict[str|bool, np.float64]: #Processes a given prefix based on the currently loaded model
 
         print()
         print("======")
