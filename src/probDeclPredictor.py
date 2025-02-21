@@ -88,9 +88,10 @@ class ProbDeclarePredictor:
         #print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
 
         #Formula for enforcing simple trace semantics (allowing all propositions to be false, should allow processing activities that are not present in the decl model by simply setting all propositions to false)
-        acPairs = list(itertools.combinations(self.activityToEncoding.values(),2))
-        simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition can be true at any point in time
-        print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
+        if len(self.activityToEncoding) > 1: #Simple trace semantics must be enforced if the declare model has more than one activiy
+            acPairs = list(itertools.combinations(self.activityToEncoding.values(),2))
+            simpleTraceFormula = "G((!(" + ")) && (!( ".join([" && ".join([ac for ac in acPair]) for acPair in acPairs]) + ")))" #At most one proposition can be true at any point in time
+            print("Simple trace semantics formula (silently added to all scenarios): " + simpleTraceFormula)
 
 
         #Used for creating the constraint scenarios, 1 - positive constraint, 0 - negated constraint
@@ -107,7 +108,10 @@ class ProbDeclarePredictor:
                     #Add 0 to the scenario name and negate the constraint formula
                     formulaComponents.append("(!" + self.constraintFormulas[index] + ")")
             
-            scenarioFormula = " && ".join(formulaComponents) + " && " + simpleTraceFormula #Scenario formula is a conjunction of negated and non-negated constraint formulas + the formula to enforce simple trace semantics
+            if len(self.activityToEncoding) > 1: #Simple trace semantics must be enforced if the declare model has more than one activiy
+                scenarioFormula = " && ".join(formulaComponents) + " && " + simpleTraceFormula #Scenario formula is a conjunction of negated and non-negated constraint formulas + the formula to enforce simple trace semantics
+            else:
+                scenarioFormula = " && ".join(formulaComponents)
             
             print("===")
             print("Scenario: " + "".join(map(str, scenario)))
@@ -198,7 +202,7 @@ class ProbDeclarePredictor:
         for scenario, prefixEndState in scenarioToPrefixEndState.items():
             #Note that there should always be one scenario that is in either PERM_SAT or POSS_SAT state
             if autUtils.get_state_truth_value(self.scenarioToDfa[scenario], prefixEndState, self.activityToEncoding.values()) is TruthValue.PERM_SAT:
-                print("Scenario" + str(scenario) + " is permanently satisfied. Returning uniform probabilities for all possible futures.")
+                print("Scenario " + "".join(map(str, scenario)) + " is permanently satisfied. Returning uniform probabilities for all possible futures.")
                 prob = 1.0/(len(self.activityToEncoding)+2) #Two is added to account for activities not present in the declare model and stopping
                 nextEventScores[False] = prob #Using False for recommending to stop the execution
                 nextEventScores[True] = prob #Using True for recommending any activity not present in the declare model (needed for chain type constraints)
