@@ -198,11 +198,12 @@ class ProbDeclarePredictor:
         for scenario, prefixEndState in scenarioToPrefixEndState.items():
             #Note that there should always be one scenario that is in either PERM_SAT or POSS_SAT state
             if autUtils.get_state_truth_value(self.scenarioToDfa[scenario], prefixEndState, self.activityToEncoding.values()) is TruthValue.PERM_SAT:
-                print("Scenario" + str(scenario) + " is permanently satisfied. Recommending to stop process execution")
-                nextEventScores[False] = 1.0 #Using False for recommending to stop the execution
-                nextEventScores[True] = 0.0 #Using True for recommending any activity not present in the declare model (needed for chain type constraints)
+                print("Scenario" + str(scenario) + " is permanently satisfied. Returning uniform probabilities for all possible futures.")
+                prob = 1.0/(len(self.activityToEncoding)+2) #Two is added to account for activities not present in the declare model and stopping
+                nextEventScores[False] = prob #Using False for recommending to stop the execution
+                nextEventScores[True] = prob #Using True for recommending any activity not present in the declare model (needed for chain type constraints)
                 for activity in self.activityToEncoding.keys(): #Setting the score of all other activities to 0.0, the resulting dictionary is the final output
-                    nextEventScores[activity] = 0.0
+                    nextEventScores[activity] = prob
                 break
             if autUtils.get_state_truth_value(self.scenarioToDfa[scenario], prefixEndState, self.activityToEncoding.values()) is TruthValue.POSS_SAT:
                 print("Stopping the execution means staying in scenario:")
