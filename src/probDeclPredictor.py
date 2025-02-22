@@ -34,7 +34,7 @@ class ProbDeclarePredictor:
         self.constraintFormulas = [] #Ltl formula of each constraint in the same order as they appear in the input model (with encoded activities)
         self.formulaToProbability = {} #For looking up probabilities based on constraint formula
         self.scenarios = [] #One tuple per each constraint scenario, tuples consist of 1,0 values where 1 means positive constraint and 0 means negated constraint
-        self.inconsistentScenarios = [] #Logically inconsistent scenarios, could probably remove this list and use scenarioToDfa.keys() instead
+        self.inconsistentScenarios = [] #Logically inconsistent scenarios, could probably remove this list and use 'not in scenarioToDfa.keys()' instead
         self.scenarioToDfa = {} #For looking up DFA based on the scenario, contains only consistent scenarios
         self.scenarioToProbability = {} #For looking up the probability of a secanrio
     
@@ -169,8 +169,21 @@ class ProbDeclarePredictor:
             else:
                 bounds.append((0,1)) #Probability of a consistent scenario must be between 0 and 1
 
-        c = [[1] * len(self.scenarios)] #Leads to consistent probability values for all scenarios without optimizing for any scenario
-        #c[0][2]=2 #This would instead bias the solution towards assigning a higher probability to the third scenario (while adjusting the probabilities of other scenarios accordingly)
+
+        #Assigning weights to scenarios based on constraint probabilities
+        c = []
+        for scenario in self.scenarios:
+            weight = 0
+            for j, posneg in enumerate(scenario):
+                if posneg == 1:
+                    weight = weight + self.formulaToProbability[self.constraintFormulas[j]]
+                else:
+                    weight = weight + (1-self.formulaToProbability[self.constraintFormulas[j]])
+            c.append(weight)
+            print("Scenario " + "".join(map(str, scenario)) + " weight: " + str(weight))
+
+        #c = [[1] * len(self.scenarios)] #Leads to consistent probability values for all scenarios without optimizing for any scenario
+        #c[0][1] = -2 #This would instead bias the solution towards assigning a higher probability to the second scenario (while adjusting the probabilities of other scenarios accordingly)
         #print(c)
 
         #Solving the system of (in)equalities

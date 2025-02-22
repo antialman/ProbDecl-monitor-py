@@ -13,6 +13,8 @@ if __name__ == "__main__":
     probDeclarePredictor = ProbDeclarePredictor()
     probDeclarePredictor.loadProbDeclModel(modelPath)
 
+    exit()
+
     #Processing trace prefix (no need to reload the model after each prefix)
     prefixes = [["b", "x", "b", "a", "a"],["b", "x", "b", "a", "a", "a"]]
     for prefix in prefixes:
