@@ -163,24 +163,27 @@ class ProbDeclarePredictor:
         #    print(str(lhs_eq_coeficents[i]) + " = " + str(rhs_eq_values[i]))
 
         bounds = [] #Tuples of upper and lower bounds for the value of each variable in the system of (in)equalities, where variables represent the probabilities of scenarios
-        for scenario in self.scenarios:
+        maxSatProbSum = 0
+        maxSatIndex = 0
+        for i, scenario in enumerate(self.scenarios):
             if scenario in self.inconsistentScenarios:
                 bounds.append((0,0)) #Probability of an inconsistent scenario must be 0
             else:
                 bounds.append((0,1)) #Probability of a consistent scenario must be between 0 and 1
-
-
-        #Assigning weights to scenarios based on constraint probabilities
-        c = []
-        for scenario in self.scenarios:
-            weight = 0
-            for j, posneg in enumerate(scenario):
-                if posneg == 1:
-                    weight = weight + self.formulaToProbability[self.constraintFormulas[j]]
-                else:
-                    weight = weight + (1-self.formulaToProbability[self.constraintFormulas[j]])
-            c.append(weight)
-            print("Scenario " + "".join(map(str, scenario)) + " weight: " + str(weight))
+                satProbSum = 0 #The system of (in)equalities will be optimized for the syenario where the sum of satisfied constraint probabilities is the highest 
+                for j, posneg in enumerate(scenario):
+                    if posneg == 1:
+                        satProbSum = satProbSum + self.formulaToProbability[self.constraintFormulas[j]]
+                    #else:
+                        #satProbSum = satProbSum + (1-self.formulaToProbability[self.constraintFormulas[j]])
+                print("Scenario " + "".join(map(str, scenario)) + " satProbSum: " + str(satProbSum))
+                if satProbSum > maxSatProbSum:
+                    maxSatProbSum = satProbSum
+                    maxSatIndex = i
+        
+        c = [[0] * len(self.scenarios)]
+        c[0][maxSatIndex] = -1 #Leads to a solution where the scenario at maxSatIndex gets the highest possible probability
+        print()
 
         #c = [[1] * len(self.scenarios)] #Leads to consistent probability values for all scenarios without optimizing for any scenario
         #c[0][1] = -2 #This would instead bias the solution towards assigning a higher probability to the second scenario (while adjusting the probabilities of other scenarios accordingly)
