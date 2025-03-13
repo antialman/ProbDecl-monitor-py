@@ -1,0 +1,9 @@
+activity ac
+activity cl
+activity re
+Exactly1[cl] | |
+Precedence[cl, ac] | | |
+Precedence[cl, re] | | |
+Response[cl, ac] | | |
+Response[cl, re] | | |
+Not Co-Existence[ac, re] | | |

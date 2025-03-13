@@ -1,0 +1,6 @@
+Exactly1[cl] | |;1.0
+Precedence[cl, ac] | | |;1.0
+Precedence[cl, re] | | |;1.0
+Response[cl, ac] | | |;0.8
+Response[cl, re] | | |;0.3
+Not Co-Existence[ac, re] | | |;0.9
